@@ -104,9 +104,9 @@ Particle initParticle(){
     particle.position = initVector(0.0f, 0.0f);
     particle.velocity = initVector(0.0f, 0.0f);
     particle.acceleration = initVector(0.0f, 0.0f);
-	particle.forceAccum = initVector(0.0f, 0.0f);
-    particle.damping = 0.98f;
-    particle.inverseMass = 0.0f;
+    particle.forceAccum = initVector(0.0f, 0.0f);
+    particle.damping = 0.998f;
+    particle.inverseMass = 1.0f;
     return particle;
 }
 
@@ -130,7 +130,7 @@ void integrate(Particle* particle, real duration){
     // update linear velocity
     addScaledVector(&(particle->velocity), &resultingAcc, duration);
     
-    // Immpose drag
+    // Impose drag
     scalarMult(&(particle->velocity), real_pow(particle->damping, duration));
 	
 	// reset forceAccum
