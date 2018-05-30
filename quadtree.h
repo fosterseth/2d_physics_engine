@@ -1,4 +1,4 @@
-#define MAX_NUM_NODES 5
+#define MAX_NUM_NODES 20
 #define MAX_QUERY_NODES 200
 
 typedef float real;

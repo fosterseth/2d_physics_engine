@@ -16,9 +16,9 @@
 #define ACCELERATION_X 0.0f
 #define ACCELERATION_Y 0.0f
 
-#define DAMPING 0.80f
+#define DAMPING 0.5f
 
-#define N 2000
+#define N 3000
 #define RECT_SIZE 10
 #define RECT_SIZE_BIG 40
 #define QTQUERY_REGIONSIZE 20
@@ -36,6 +36,8 @@
 #define G1 130.0f
 #define B1 251.0f
 
+unsigned int previous_cursor_time;
+
 bool ShouldQuit = false;
 
 
@@ -52,7 +54,7 @@ SDL_Renderer* Renderer;
 
 objectRect rect_array[N];
 objectRect* cursor_rect;
-Vector previous_position;
+Vector previous_cursor_position;
 
 Particle* boundary;
 
@@ -172,6 +174,26 @@ void drawquadtree(Quadtree* quadtree){
 
 }
 
+
+void detect_collision_with_particle2(){
+    int i, j, z, idx;
+
+
+    for (i=0; i<N; i++){
+        for (j=0; j<N; j++){
+            if (i!=j){
+                if (is_colliding(&rect_array[i], &rect_array[j])){
+                    calculateSeparatingVelocity(&rect_array[i].particle, &rect_array[j].particle);
+                    if (cursor_rect == &rect_array[i])
+                        rect_array[i].particle.separatingVelocity = -40.0f;
+                    resolveVelocity(&rect_array[i].particle, &rect_array[j].particle);
+                }
+            }
+        }
+    }
+}
+
+
 void detect_collision_with_particle(){
     Quadtree* Q = (Quadtree*)malloc(sizeof(Quadtree));
     initquadtree(Q, 0,0,SCREEN_X,SCREEN_Y);
@@ -219,15 +241,15 @@ void detect_collision_with_particle(){
         R.y = rect_array[i].rect.y - QTQUERY_REGIONSIZE;
         R.rheight = rect_array[i].rect.h + QTQUERY_REGIONSIZE + QTQUERY_REGIONSIZE;
         R.rwidth = rect_array[i].rect.w + QTQUERY_REGIONSIZE + QTQUERY_REGIONSIZE;
-        if (cursor_rect == &rect_array[i]){
-            SDL_Rect regionrect;
-            regionrect.x = R.x;
-            regionrect.y = R.y;
-            regionrect.h = R.rheight;
-            regionrect.w = R.rwidth;
-            SDL_SetRenderDrawColor(Renderer, 255, 255, 0, 0);
-            SDL_RenderDrawRect(Renderer, &regionrect);
-        }
+//        if (cursor_rect == &rect_array[i]){
+//            SDL_Rect regionrect;
+//            regionrect.x = R.x;
+//            regionrect.y = R.y;
+//            regionrect.h = R.rheight;
+//            regionrect.w = R.rwidth;
+//            SDL_SetRenderDrawColor(Renderer, 255, 255, 0, 0);
+//            SDL_RenderDrawRect(Renderer, &regionrect);
+//        }
         Node* node_array[MAX_QUERY_NODES] = {NULL};
         queryquadtree(Q, R, node_array, &idx);
         for (j=0; j<MAX_QUERY_NODES; j++){
@@ -240,8 +262,8 @@ void detect_collision_with_particle(){
                 if (i!=z){
                     if (is_colliding(&rect_array[i], &rect_array[z])){
                         calculateSeparatingVelocity(&rect_array[i].particle, &rect_array[z].particle);
-                        if (cursor_rect == &rect_array[i])
-                            rect_array[i].particle.separatingVelocity = -30.0f;
+//                        if (cursor_rect == &rect_array[i])
+//                            rect_array[i].particle.separatingVelocity = -40.0f;
                         resolveVelocity(&rect_array[i].particle, &rect_array[z].particle);
                     }
                 }
@@ -308,7 +330,7 @@ void detect_collision_with_point(int x, int y){
             cursor_rect->particle.inverseMass = 0.0f;
             setVector(&cursor_rect->particle.velocity, 0.0f, 0.0f);
             setVector(&cursor_rect->particle.acceleration, 0.0f, 0.0f);
-//            previous_position = rect_array[i].particle.position;
+            previous_cursor_position = rect_array[i].particle.position;
             break;
         }
     }
@@ -341,15 +363,21 @@ void set_rect_xy(){
         cursor_rect->rect.y = y;
         cursor_rect->particle.position.x = cursor_rect->rect.x;
         cursor_rect->particle.position.y = cursor_rect->rect.y;
-//        Vector tmp;
-//        tmp = cursor_rect->particle.position;
-//        cursor_rect->particle.velocity = retVectorSub(&cursor_rect->particle.position, &previous_position);
-//        printf("cursor_rect vel :  %f   %f\n", cursor_rect->particle.velocity.x, cursor_rect->particle.velocity.x);
-//        previous_position = tmp;
     }
 }
 
 void render(){
+    if (cursor_rect){
+        unsigned int current_cursor_time = SDL_GetTicks();
+        if (current_cursor_time > previous_cursor_time + 100){
+            previous_cursor_time = current_cursor_time;
+            Vector tmp = retVectorSub(&cursor_rect->particle.position, &previous_cursor_position);
+            scalarMult(&tmp, 1000.0f/100.0f);
+            cursor_rect->particle.velocity = tmp;
+            previous_cursor_position = cursor_rect->particle.position;
+            printf("cursor_rect vel :  %f   %f\n", cursor_rect->particle.velocity.x, cursor_rect->particle.velocity.y);
+        }
+    }
     SDL_SetRenderDrawColor(Renderer, 0, 0, 0, 255);
     SDL_RenderClear(Renderer);
     detect_collision_with_particle();
@@ -376,6 +404,7 @@ void set_particle_props(){
     for (int i = 0; i<N; i++){
         setVector(&rect_array[i].particle.position, rand_float(50, SCREEN_X), rand_float(50, SCREEN_Y));
         setVector(&rect_array[i].particle.velocity, rand_float(-VEL, VEL), rand_float(-VEL, VEL));
+//        setVector(&rect_array[i].particle.acceleration, 0.0f, 30.0f);
         rect_array[i].particle.damping = DAMPING;
 
         rect_array[i].rect.w = RECT_SIZE;

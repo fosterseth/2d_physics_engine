@@ -23,7 +23,6 @@ void setVector(Vector* vector, real x, real y){
 	vector->y = y;
 }
 
-/* Vector Methods */
 void invert(Vector* vector){
     vector->x = -vector->x;
     vector->y = -vector->y;
@@ -95,6 +94,8 @@ typedef struct Particle{
 	Vector velocity;
 	Vector acceleration;
 	Vector forceAccum;
+    Vector contactNormal;
+    real separatingVelocity;
 	real damping;
 	real inverseMass;
 } Particle;
@@ -105,6 +106,8 @@ Particle initParticle(){
     particle.velocity = initVector(0.0f, 0.0f);
     particle.acceleration = initVector(0.0f, 0.0f);
     particle.forceAccum = initVector(0.0f, 0.0f);
+    particle.contactNormal = initVector(0.0f, 0.0f);
+    particle.separatingVelocity = 0.0f;
     particle.damping = 0.998f;
     particle.inverseMass = 1.0f;
     return particle;
@@ -135,5 +138,39 @@ void integrate(Particle* particle, real duration){
 	
 	// reset forceAccum
 	setVector(&(particle->forceAccum), 0.0f, 0.0f);
+    
+}
+
+void calculateSeparatingVelocity(Particle* particle1, Particle* particle2){
+    Vector relativeVelocity = retVectorSub(&particle1->velocity, &particle2->velocity);
+    Vector contactNormal = retVectorSub(&particle1->position, &particle2->position);
+    normalize(&contactNormal);
+    particle1->contactNormal = contactNormal;
+    particle1->separatingVelocity = retScalarProduct(&relativeVelocity, &contactNormal);
+}
+
+void resolveVelocity(Particle* particle1, Particle* particle2){
+    
+    if (particle1->separatingVelocity > 0)
+        return;
+    
+    real newSepVelocity = -particle1->separatingVelocity * 1;
+    real deltaVelocity = newSepVelocity - particle1->separatingVelocity;
+    
+    real totalInverseMass = particle1->inverseMass;
+    
+    if (particle2)
+        totalInverseMass += particle2->inverseMass;
+    
+    if (totalInverseMass <= 0)
+        return;
+        
+    real impulse = deltaVelocity / totalInverseMass;
+    Vector impulsePerIMass = retScalarMult(&particle1->contactNormal, impulse);
+    
+    addScaledVector(&particle1->velocity, &impulsePerIMass, particle1->inverseMass);
+    
+    if (particle2)
+        addScaledVector(&particle2->velocity, &impulsePerIMass, -particle2->inverseMass);
     
 }
